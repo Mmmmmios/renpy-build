@@ -13,6 +13,7 @@ def gen_static(c: Context):
 
     c.chdir("{{ renpy }}")
     c.env("RENPY_DEPS_INSTALL", "/usr::/usr/lib/x86_64-linux-gnu/")
+    c.env("RENPY_REGENERATE_CYTHON", "1")
     c.run("uv --project renpy run setup.py generate")
 
 
