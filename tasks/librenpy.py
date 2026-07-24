@@ -1,6 +1,7 @@
 from renpybuild.context import Context
 from renpybuild.task import task
 
+from pathlib import Path
 
 @task(kind="arch")
 def clean(c: Context):
@@ -8,26 +9,21 @@ def clean(c: Context):
 
 
 @task(kind="host", always=True)
-def gen_static3(c: Context):
+def gen_static(c: Context):
 
     c.chdir("{{ renpy }}")
     c.env("RENPY_DEPS_INSTALL", "/usr::/usr/lib/x86_64-linux-gnu/")
-    c.env("RENPY_STATIC", "1")
-    c.env("RENPY_REGENERATE_CYTHON", "1")
-    c.run("{{ hostpython }} setup.py generate")
+    c.run("uv --project renpy run setup.py generate")
 
 
 @task(kind="arch", platforms="all", always=True)
 def build(c: Context):
 
-    c.env("CFLAGS", """{{ CFLAGS }} "-I{{ renpy }}/src" "-I{{renpy}}/tmp/gen3-static" """)
-    c.env("CXXFLAGS", """{{ CXXFLAGS }} "-I{{ renpy }}/src" "-I{{renpy}}/tmp/gen3-static" """)
+    c.env("CFLAGS", """{{ CFLAGS }} -I{{ renpy }}/src -I{{ renpy }}/tmp/gen """)
+    c.env("CXXFLAGS", """{{ CXXFLAGS }} -I{{ renpy }}/src -I{{ renpy }}/tmp/gen """)
 
-    gen = "gen3-static/"
-
-    modules = []
-    sources = []
-    source_module = {}
+    modules: list[str] = []
+    source_to_module: dict[Path, str] = {}
 
     def read_setup(dn, suffix=""):
         with open(dn / ("Setup" + suffix)) as f:
@@ -35,17 +31,13 @@ def build(c: Context):
                 line = line.partition("#")[0].strip()
                 if not line:
                     continue
+
                 parts = line.split()
-                module_name = parts[0]
+                module_name, *sources = parts
                 modules.append(module_name)
 
-                for i in parts[1:]:
-                    if "libhydrogen" not in i:
-                        i = i.replace("gen/", gen)
-
-                    source = dn / i
-                    sources.append(source)
-                    source_module[source] = module_name
+                for p in sources:
+                    source_to_module[dn / p] = module_name
 
     read_setup(c.renpy / "src")
     read_setup(c.root / "extensions")
@@ -64,23 +56,25 @@ def build(c: Context):
 
     read_setup(c.path("{{ source }}/brotli"))
 
-    objects = []
+    objects: list[str] = []
 
     with c.run_group() as g:
-        for source in sources:
-            name, _, ext = str(source.name).rpartition(".")
+        for source, module_name in source_to_module.items():
+            name = source.stem
+            ext = source.suffix[1:]
 
-            object = name + ".o"
+            object = f"{name}.o"
+            if object in objects:
+                continue
+
             objects.append(object)
 
             c.var("src", source)
             c.var("object", object)
 
-            c.var("pyinit_define", "")
-            if module_name := source_module.get(source):
-                mangled = module_name.replace(".", "_")
-                short = module_name.rpartition(".")[-1]
-                c.var("pyinit_define", f"-DPyInit_{short}=PyInit_{mangled}")
+            mangled = module_name.replace(".", "_")
+            short = module_name.rpartition(".")[-1]
+            c.var("pyinit_define", f"-DPyInit_{short}=PyInit_{mangled}")
 
             if ext == "c":
                 g.run("{{ CC }} {{ CFLAGS }} {{ pyinit_define }} -c {{ src }} -o {{ object }}")
@@ -93,11 +87,9 @@ def build(c: Context):
 
     c.var("objects", " ".join(objects))
 
-    c.unlink("librenpy.a")
     if c.platform in ("mac", "ios"):
-        c.run("{{ AR }} --format=darwin r librenpy.a {{ objects }} inittab.o")
+        c.run("{{ AR }} --format=darwin crs librenpy.a {{ objects }}")
     else:
-        c.run("{{ AR }} r librenpy.a {{ objects }} inittab.o")
-    c.run("{{ RANLIB }} librenpy.a")
+        c.run("{{ AR }} crs librenpy.a {{ objects }}")
 
     c.copy("librenpy.a", "{{ install }}/lib/librenpy.a")

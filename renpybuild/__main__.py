@@ -124,8 +124,7 @@ def clean(args):
     for i in tmp.glob("install.*"):
         rmtree(i)
 
-    rmtree(root / "renpy" / "tmp" / "gen3")
-    rmtree(root / "renpy" / "tmp" / "gen3-static")
+    rmtree(root / "renpy" / "tmp" / "gen")
 
     rmtree(root / "renpy" / "web")
     rmtree(root / "renpy" / "renios")

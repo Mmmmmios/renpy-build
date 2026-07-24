@@ -34,5 +34,4 @@ if [ "$NOPULL" != 1 ]; then
     update https://github.com/renpy/renpy renpy
 fi
 
-rm -Rf "$BASE/renpy/tmp/gen3"
-rm -Rf "$BASE/renpy/tmp/gen3-static"
+rm -Rf "$BASE/renpy/tmp/gen"
