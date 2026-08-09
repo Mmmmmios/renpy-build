@@ -74,5 +74,5 @@ def copy(c: Context):
 @task(kind="platform", always=True)
 def android_module(c: Context):
     c.run("""install -d {{ install }}/lib/{{ pythonver }}/site-packages/android""")
-    c.run("""install {{ runtime }}/android/__init__.py {{ install }}/lib/{{ pythonver }}/site-packages/android""")
-    c.run("""install {{ runtime }}/android/apk.py {{ install }}/lib/{{ pythonver }}/site-packages/android""")
+    c.run("""install {{ renpy }}/runtime/android/__init__.py {{ install }}/lib/{{ pythonver }}/site-packages/android""")
+    c.run("""install {{ renpy }}/runtime/android/apk.py {{ install }}/lib/{{ pythonver }}/site-packages/android""")

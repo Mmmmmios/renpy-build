@@ -5,11 +5,11 @@ from renpybuild.task import task
 @task(kind="arch", platforms="web", always=True)
 def build(c: Context):
 
-    c.run("cp {{runtime}}/emscripten.pyx emscripten.pyx")
+    c.run("cp {{ renpy }}/runtime/emscripten.pyx emscripten.pyx")
     c.run("cython emscripten.pyx")
 
-    c.run("install -d {{install}}/emscripten_pyx")
-    c.run("install emscripten.c {{install}}/emscripten_pyx")
+    c.run("install -d {{ install }}/emscripten_pyx")
+    c.run("install emscripten.c {{ install }}/emscripten_pyx")
 
     with open(c.path("{{ install }}/emscripten_pyx/Setup"), "w") as f:
         f.write("emscripten emscripten.c\n")
