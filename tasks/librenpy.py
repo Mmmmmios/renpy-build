@@ -3,12 +3,12 @@ from renpybuild.task import task
 
 from pathlib import Path
 
-@task(kind="arch")
+@task(kind="arch", platforms="all")
 def clean(c: Context):
     c.clean()
 
 
-@task(kind="host", always=True)
+@task(kind="host", platforms="all", always=True)
 def gen_static(c: Context):
 
     c.chdir("{{ renpy }}")
