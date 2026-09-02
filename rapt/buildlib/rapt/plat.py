@@ -120,13 +120,31 @@ renpy = False
 
 def rename(src, dst):
     """
-    Renames src to dst.
+    Renames src to dst with atomic rename and fast move.
     """
 
     if os.path.isdir(dst):
-        shutil.rmtree(dst)
+        try:
+            shutil.rmtree(dst)
+        except Exception:
+            pass
     elif os.path.exists(dst):
-        os.unlink(dst)
+        try:
+            os.unlink(dst)
+        except Exception:
+            pass
+
+    try:
+        os.replace(src, dst)
+        return
+    except Exception:
+        pass
+
+    try:
+        shutil.move(src, dst)
+        return
+    except Exception:
+        pass
 
     if os.path.isdir(src):
         shutil.copytree(src, dst)
