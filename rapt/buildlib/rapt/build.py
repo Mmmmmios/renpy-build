@@ -255,32 +255,6 @@ def make_assets_tree(src, dest):
         list(executor.map(copy_worker, copy_tasks))
 
 
-def make_tree(src, dest):
-    src = plat.path(src)
-    dest = plat.path(dest)
-
-    def ignore(dir, files):
-        rv = []
-
-        for basename in files:
-            fn = os.path.join(dir, basename)
-            relfn = os.path.relpath(fn, src)
-
-            ignore = False
-
-            if blocklist.match(relfn):
-                ignore = True
-            if keeplist.match(relfn):
-                ignore = False
-
-            if ignore:
-                rv.append(basename)
-
-        return rv
-
-    shutil.copytree(src, dest, ignore=ignore)
-
-
 def copy_into(src, dest):
     """
     Copies all files from `src` into `dest`, creating
