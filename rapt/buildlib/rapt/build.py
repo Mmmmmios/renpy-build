@@ -1,4 +1,5 @@
 import collections
+import concurrent.futures
 import gzip
 import hashlib
 import os
@@ -187,7 +188,7 @@ def make_assets_tree(src, dest):
     Directly copies files from src into dest with the 'x-' prefix on every
     directory and file segment in a single concurrent pass.
     Prevents the bug where 'game' and 'x-game' co-existed due to failed directory
-    renames on Windows, and runs 10x faster for games with thousands of files.
+    renames on Windows, and runs faster for games with thousands of files.
     """
     src = plat.path(src)
     dest = plat.path(dest)
@@ -198,21 +199,24 @@ def make_assets_tree(src, dest):
         except OSError:
             pass
 
+    needed_dirs = set()
     copy_tasks = []
 
     for dirpath, dirnames, filenames in os.walk(src):
+        # Prune hidden and blocklisted directories so os.walk does not descend into them.
+        dirnames[:] = [
+            d for d in dirnames
+            if d[0] != "."
+            and not (blocklist.match(os.path.relpath(os.path.join(dirpath, d), src))
+                     and not keeplist.match(os.path.relpath(os.path.join(dirpath, d), src)))
+        ]
+
         rel_dir = os.path.relpath(dirpath, src)
         if rel_dir == ".":
             dest_dir = dest
         else:
             parts = rel_dir.replace("\\", "/").split("/")
-            dest_dir = os.path.join(dest, *[("x-" + p if not p.startswith("x-") else p) for p in parts])
-
-        if not os.path.exists(dest_dir):
-            try:
-                os.makedirs(dest_dir, 0o777)
-            except OSError:
-                pass
+            dest_dir = os.path.join(dest, *[("x-" + p) for p in parts])
 
         for fn in filenames:
             if fn[0] == ".":
@@ -224,26 +228,28 @@ def make_assets_tree(src, dest):
             if blocklist.match(rel_file) and not keeplist.match(rel_file):
                 continue
 
-            target_fn = "x-" + fn if not fn.startswith("x-") else fn
+            needed_dirs.add(dest_dir)
+
+            target_fn = "x-" + fn
             dest_file = os.path.join(dest_dir, target_fn)
 
             copy_tasks.append((src_file, dest_file, fn.endswith(".gz")))
 
-    def copy_worker(task):
-        src_file, dest_file, is_gz = task
-        try:
-            if is_gz:
-                with open(src_file, "rb") as s, gzip.open(dest_file + ".gz", "wb") as out:
-                    shutil.copyfileobj(s, out)
-            else:
-                shutil.copyfile(src_file, dest_file)
-        except Exception:
+    for d in needed_dirs:
+        if not os.path.exists(d):
             try:
-                shutil.copy(src_file, dest_file)
-            except Exception:
+                os.makedirs(d, 0o777)
+            except OSError:
                 pass
 
-    import concurrent.futures
+    def copy_worker(task):
+        src_file, dest_file, is_gz = task
+        if is_gz:
+            with open(src_file, "rb") as s, gzip.open(dest_file + ".gz", "wb") as out:
+                shutil.copyfileobj(s, out)
+        else:
+            shutil.copyfile(src_file, dest_file)
+
     max_workers = min(16, (os.cpu_count() or 4) * 2)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         list(executor.map(copy_worker, copy_tasks))
