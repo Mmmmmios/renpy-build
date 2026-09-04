@@ -217,10 +217,18 @@ def make_assets_tree(src, dst):
     src = plat.path(src)
     dst = plat.path(dst)
 
+    drop = blocklist.match
+    keep = keeplist.match
+
+    copy2 = shutil.copy2
+    join = os.path.join
+    mkdir = os.mkdir
+    relpath = os.path.relpath
+
     def copy(pair):
         old, new = pair
 
-        if old.endswith(".gz"):
+        if old[-3:] == ".gz":
             # AAPT unavoidably gunzips files with a .gz extension.
             # To prevent this we temporarily double gzip such files,
             # leaving AAPT to unpack them back into the original
@@ -229,41 +237,43 @@ def make_assets_tree(src, dst):
                 shutil.copyfileobj(r, w)
 
         else:
-            shutil.copy2(old, new)
+            copy2(old, new)
 
     def walk(old, new):
         cache = {old: new}
 
-        os.mkdir(new)
+        mkdir(new)
 
-        for old_stem, dirnames, filenames in os.walk(old, topdown=True):
+        for old_stem, dirnames, filenames in os.walk(old):
             new_stem = cache[old_stem]
-            keep = []
+            rel_stem = relpath(old_stem, old)
+
+            visit = []
 
             for name in dirnames:
-                old_path = os.path.join(old_stem, name)
-                rel = os.path.relpath(old_path, old)
+                rel_path = join(rel_stem, name)
 
-                if blocklist.match(rel) and not keeplist.match(rel):
+                if drop(rel_path) and not keep(rel_path):
                     continue
 
-                keep.append(name)
-
-                new_path = os.path.join(new_stem, "x-" + name)
-                os.mkdir(new_path)
+                old_path = join(old_stem, name)
+                new_path = join(new_stem, f"x-{name}")
 
                 cache[old_path] = new_path
+                visit.append(name)
 
-            dirnames[:] = keep
+                mkdir(new_path)
+
+            dirnames[:] = visit
 
             for name in filenames:
-                old_path = os.path.join(old_stem, name)
-                rel = os.path.relpath(old_path, old)
+                rel_path = join(rel_stem, name)
 
-                if blocklist.match(rel) and not keeplist.match(rel):
+                if drop(rel_path) and not keep(rel_path):
                     continue
 
-                new_path = os.path.join(new_stem, "x-" + name)
+                old_path = join(old_stem, name)
+                new_path = join(new_stem, f"x-{name}")
 
                 yield old_path, new_path
 
