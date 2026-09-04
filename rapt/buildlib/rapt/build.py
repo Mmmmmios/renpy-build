@@ -217,13 +217,7 @@ def make_assets_tree(src, dst):
     src = plat.path(src)
     dst = plat.path(dst)
 
-    drop = blocklist.match
-    keep = keeplist.match
-
     copy2 = shutil.copy2
-    join = os.path.join
-    mkdir = os.mkdir
-    relpath = os.path.relpath
 
     def copy(pair):
         old, new = pair
@@ -240,6 +234,21 @@ def make_assets_tree(src, dst):
             copy2(old, new)
 
     def walk(old, new):
+        drop = blocklist.match
+        keep = keeplist.match
+
+        mkdir = os.mkdir
+        relpath = os.path.relpath
+        sep = os.sep
+
+        # join: Faster than os.path.join for our purposes.
+        join = lambda a, b: f"{a}{sep}{b}"
+
+        # Special case the top-level iteration where rel_path='.', then
+        # replace with normal join function in subsequent iterations.
+        # join1: ignore 1st arg
+        join1 = lambda a, b: b
+
         cache = {old: new}
 
         mkdir(new)
@@ -251,7 +260,7 @@ def make_assets_tree(src, dst):
             visit = []
 
             for name in dirnames:
-                rel_path = join(rel_stem, name)
+                rel_path = join1(rel_stem, name)
 
                 if drop(rel_path) and not keep(rel_path):
                     continue
@@ -267,7 +276,7 @@ def make_assets_tree(src, dst):
             dirnames[:] = visit
 
             for name in filenames:
-                rel_path = join(rel_stem, name)
+                rel_path = join1(rel_stem, name)
 
                 if drop(rel_path) and not keep(rel_path):
                     continue
@@ -276,6 +285,8 @@ def make_assets_tree(src, dst):
                 new_path = join(new_stem, f"x-{name}")
 
                 yield old_path, new_path
+
+            join1 = join
 
     # Limiting factor is I/O not CPU, so use a fixed value for max workers.
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
