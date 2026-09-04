@@ -183,6 +183,30 @@ def make_tar(iface, fn, source_dirs):
     tf.close()
 
 
+def copy_into(src, dest):
+    """
+    Copies all files from `src` into `dest`, creating
+    directories that do not exist.
+    """
+
+    if not os.path.exists(src):
+        return
+
+    if os.path.isdir(src):
+        if not os.path.isdir(dest):
+            os.mkdir(dest, 0o777)
+
+        for i in os.listdir(src):
+            copy_into(
+                os.path.join(src, i),
+                os.path.join(dest, i),
+            )
+
+        return
+
+    shutil.copy2(src, dest)
+
+
 def make_assets_tree(src, dst):
     """
     Copies a subset of files from src to dst (governed by blocklist/keeplist)
@@ -247,30 +271,6 @@ def make_assets_tree(src, dst):
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
         for _ in executor.map(copy, walk(src, dst)):
             pass
-
-
-def copy_into(src, dest):
-    """
-    Copies all files from `src` into `dest`, creating
-    directories that do not exist.
-    """
-
-    if not os.path.exists(src):
-        return
-
-    if os.path.isdir(src):
-        if not os.path.isdir(dest):
-            os.mkdir(dest, 0o777)
-
-        for i in os.listdir(src):
-            copy_into(
-                os.path.join(src, i),
-                os.path.join(dest, i),
-            )
-
-        return
-
-    shutil.copy2(src, dest)
 
 
 MAX_SIZE = 1000000000
