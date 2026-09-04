@@ -128,6 +128,12 @@ def rename(src, dst):
     elif os.path.exists(dst):
         os.unlink(dst)
 
+    try:
+        os.replace(src, dst)
+        return
+    except Exception:
+        pass
+
     if os.path.isdir(src):
         shutil.copytree(src, dst)
         shutil.rmtree(src)
