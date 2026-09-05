@@ -119,9 +119,8 @@ def render(always, template, dest, **kwargs):
     template = environment.get_template(template)
     text = template.render(**kwargs)
 
-    f = open(dest, "wb")
-    f.write(text.encode("utf-8"))
-    f.close()
+    with open(dest, "wb") as f:
+        f.write(text.encode("utf-8"))
 
 
 def make_tar(iface, fn, source_dirs):
@@ -560,7 +559,8 @@ def copy_project(update_always=False):
         fn = plat.path(fn)
 
         if os.path.exists(fn):
-            return open(fn).read().strip()
+            with open(fn) as f:
+                return f.read().strip()
         else:
             return None
 
